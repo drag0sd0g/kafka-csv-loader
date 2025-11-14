@@ -77,3 +77,21 @@ avro {
     setStringType("String")
     fieldVisibility.set("PRIVATE")
 }
+
+tasks.withType<Test> {
+    useJUnitPlatform()
+    
+    // Set Docker socket for Testcontainers when using Colima
+    val dockerSocket = "${System.getProperty("user.home")}/.colima/default/docker.sock"
+    environment("DOCKER_HOST", "unix://$dockerSocket")
+    environment("TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE", dockerSocket)
+    
+    // IMPORTANT: Disable Ryuk for Colima compatibility
+    environment("TESTCONTAINERS_RYUK_DISABLED", "true")
+    
+    testLogging {
+        events("passed", "skipped", "failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        showStandardStreams = true
+    }
+}
