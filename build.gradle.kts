@@ -4,6 +4,7 @@ plugins {
     kotlin("jvm") version "1.9.22"
     application
     id("com.github.davidmc24.gradle.plugin.avro") version "1.9.1"
+    id("org.jlleitschuh.gradle.ktlint") version "12.1.0"
 }
 
 group = "com.dragos"
@@ -60,6 +61,20 @@ tasks.withType<KotlinCompile> {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    
+    // Set Docker socket for Testcontainers when using Colima
+    val dockerSocket = "${System.getProperty("user.home")}/.colima/default/docker.sock"
+    environment("DOCKER_HOST", "unix://$dockerSocket")
+    environment("TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE", dockerSocket)
+    
+    // IMPORTANT: Disable Ryuk for Colima compatibility
+    environment("TESTCONTAINERS_RYUK_DISABLED", "true")
+    
+    testLogging {
+        events("passed", "skipped", "failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        showStandardStreams = true
+    }
 }
 
 // Fat JAR configuration
@@ -78,20 +93,30 @@ avro {
     fieldVisibility.set("PRIVATE")
 }
 
-tasks.withType<Test> {
-    useJUnitPlatform()
+// ktlint configuration
+ktlint {
+    version.set("1.0.1")
+    verbose.set(true)
+    android.set(false)
+    outputToConsole.set(true)
+    ignoreFailures.set(false)
     
-    // Set Docker socket for Testcontainers when using Colima
-    val dockerSocket = "${System.getProperty("user.home")}/.colima/default/docker.sock"
-    environment("DOCKER_HOST", "unix://$dockerSocket")
-    environment("TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE", dockerSocket)
-    
-    // IMPORTANT: Disable Ryuk for Colima compatibility
-    environment("TESTCONTAINERS_RYUK_DISABLED", "true")
-    
-    testLogging {
-        events("passed", "skipped", "failed")
-        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
-        showStandardStreams = true
+    filter {
+        exclude("**/generated/**")
+        include("**/kotlin/**")
     }
 }
+
+// Make build depend on ktlint checks
+tasks.named("check") {
+    dependsOn("ktlintCheck")
+}
+
+// Auto-format code before compiling
+tasks.named("compileKotlin") {
+    dependsOn("ktlintFormat")
+}
+
+tasks.named("compileTestKotlin") {
+    dependsOn("ktlintFormat")
+}   
