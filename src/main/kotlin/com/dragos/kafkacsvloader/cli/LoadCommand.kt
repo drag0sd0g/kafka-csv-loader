@@ -12,6 +12,7 @@ import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.options.versionOption
+import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.mordant.rendering.TextColors.cyan
 import com.github.ajalt.mordant.rendering.TextColors.green
 import com.github.ajalt.mordant.rendering.TextColors.red
@@ -19,6 +20,7 @@ import com.github.ajalt.mordant.rendering.TextColors.yellow
 import com.github.ajalt.mordant.rendering.TextStyles.bold
 import com.github.ajalt.mordant.terminal.Terminal
 import org.apache.avro.Schema
+import org.apache.avro.generic.GenericRecord
 import kotlin.system.exitProcess
 
 class KafkaCsvLoaderCommand : CliktCommand(
@@ -47,6 +49,14 @@ class KafkaCsvLoaderCommand : CliktCommand(
         "--dry-run",
         "-d",
         help = "Validate CSV and schema without sending to Kafka",
+    ).flag(default = false)
+    private val batchSize by option(
+        "--batch-size",
+        help = "Number of records to batch before sending (default: 1 = no batching)",
+    ).int().default(1)
+    private val asyncSend by option(
+        "--async",
+        help = "Send batches asynchronously (faster but less safe)",
     ).flag(default = false)
 
     init {
@@ -167,41 +177,147 @@ class KafkaCsvLoaderCommand : CliktCommand(
 
         KafkaProducerClient(bootstrapServers, schemaRegistry).use { producer ->
             terminal.println(yellow("📤 Sending records to Kafka..."))
+            if (batchSize > 1) {
+                terminal.println(cyan("   Batch size: $batchSize, Mode: ${if (asyncSend) "async" else "sync"}"))
+            }
             terminal.println()
 
             var successCount = 0
             val failures = mutableListOf<Pair<Int, String>>()
 
-            csvData.rows.forEachIndexed { index, row ->
-                val rowNumber = index + 1
-                val result = AvroRecordMapper.mapRow(schema, row)
-
-                when (result) {
-                    is RowMappingResult.Success -> {
-                        val key = keyField?.let { row[it] }
-                        try {
-                            producer.sendSync(topic, key, result.record)
-                            successCount++
-                            terminal.print(green("✓"))
-                            if (rowNumber % 50 == 0) {
-                                terminal.println(" $rowNumber")
-                            }
-                        } catch (e: Exception) {
-                            failures.add(rowNumber to "Kafka error: ${e.message}")
-                            terminal.print(red("✗"))
-                        }
-                    }
-                    is RowMappingResult.Failure -> {
-                        failures.add(rowNumber to result.errors.joinToString("; "))
-                        terminal.print(red("✗"))
-                    }
-                }
+            if (batchSize > 1) {
+                // Batched sending
+                successCount = sendBatched(schema, csvData, producer, failures)
+            } else {
+                // Row-by-row sending
+                successCount = sendRowByRow(schema, csvData, producer, failures)
             }
 
             terminal.println()
             terminal.println()
 
             printKafkaSummary(successCount, failures)
+        }
+    }
+
+    private fun sendRowByRow(
+        schema: Schema,
+        csvData: CsvData,
+        producer: KafkaProducerClient,
+        failures: MutableList<Pair<Int, String>>,
+    ): Int {
+        var successCount = 0
+
+        csvData.rows.forEachIndexed { index, row ->
+            val rowNumber = index + 1
+            val result = AvroRecordMapper.mapRow(schema, row)
+
+            when (result) {
+                is RowMappingResult.Success -> {
+                    val key = keyField?.let { row[it] }
+                    try {
+                        producer.sendSync(topic, key, result.record)
+                        successCount++
+                        terminal.print(green("✓"))
+                        if (rowNumber % 50 == 0) {
+                            terminal.println(" $rowNumber")
+                        }
+                    } catch (e: Exception) {
+                        failures.add(rowNumber to "Kafka error: ${e.message}")
+                        terminal.print(red("✗"))
+                    }
+                }
+                is RowMappingResult.Failure -> {
+                    failures.add(rowNumber to result.errors.joinToString("; "))
+                    terminal.print(red("✗"))
+                }
+            }
+        }
+
+        return successCount
+    }
+
+    private fun sendBatched(
+        schema: Schema,
+        csvData: CsvData,
+        producer: KafkaProducerClient,
+        failures: MutableList<Pair<Int, String>>,
+    ): Int {
+        var successCount = 0
+        val batch = mutableListOf<Triple<Int, String?, GenericRecord>>()
+
+        csvData.rows.forEachIndexed { index, row ->
+            val rowNumber = index + 1
+            val result = AvroRecordMapper.mapRow(schema, row)
+
+            when (result) {
+                is RowMappingResult.Success -> {
+                    val key = keyField?.let { row[it] }
+                    batch.add(Triple(rowNumber, key, result.record))
+
+                    // Send batch when it reaches batch size or it's the last row
+                    if (batch.size >= batchSize || rowNumber == csvData.rows.size) {
+                        val batchSuccess = sendBatchToKafka(producer, batch, failures)
+                        successCount += batchSuccess
+                        batch.clear()
+
+                        if (rowNumber % 50 == 0) {
+                            terminal.println(green("   ✓ Processed $rowNumber rows..."))
+                        }
+                    }
+                }
+                is RowMappingResult.Failure -> {
+                    failures.add(rowNumber to result.errors.joinToString("; "))
+                    terminal.print(red("✗"))
+                }
+            }
+        }
+
+        return successCount
+    }
+
+    private fun sendBatchToKafka(
+        producer: KafkaProducerClient,
+        batch: List<Triple<Int, String?, GenericRecord>>,
+        failures: MutableList<Pair<Int, String>>,
+    ): Int {
+        if (batch.isEmpty()) return 0
+
+        return try {
+            val records = batch.map { (_, key, record) -> key to record }
+
+            if (asyncSend) {
+                // Async: send and flush
+                val futures = producer.sendBatch(topic, records)
+                producer.flush()
+                // Check for failures
+                futures.forEachIndexed { idx, future ->
+                    try {
+                        future.get()
+                        terminal.print(green("✓"))
+                    } catch (e: Exception) {
+                        val rowNumber = batch[idx].first
+                        failures.add(rowNumber to "Kafka error: ${e.message}")
+                        terminal.print(red("✗"))
+                    }
+                }
+                batch.size -
+                    futures.count { future ->
+                        runCatching { future.get() }.isFailure
+                    }
+            } else {
+                // Sync: wait for all to complete
+                producer.sendBatchSync(topic, records)
+                batch.forEach { _ -> terminal.print(green("✓")) }
+                batch.size
+            }
+        } catch (e: Exception) {
+            // Entire batch failed
+            batch.forEach { (rowNumber, _, _) ->
+                failures.add(rowNumber to "Kafka batch error: ${e.message}")
+                terminal.print(red("✗"))
+            }
+            0
         }
     }
 

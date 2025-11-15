@@ -11,6 +11,7 @@ import java.util.concurrent.Future
 /**
  * Kafka producer client configured to send Avro GenericRecords.
  * Uses Confluent's KafkaAvroSerializer which handles Schema Registry integration.
+ * Supports both synchronous and asynchronous batched sending.
  */
 class KafkaProducerClient(
     bootstrapServers: String,
@@ -53,7 +54,7 @@ class KafkaProducerClient(
     }
 
     /**
-     * Send a GenericRecord to the specified topic.
+     * Send a GenericRecord to the specified topic (async).
      * Key can be null (will distribute round-robin).
      * Returns a Future that completes when the send finishes.
      */
@@ -89,6 +90,41 @@ class KafkaProducerClient(
         value: GenericRecord,
     ): RecordMetadata {
         return send(topic, key, value).get()
+    }
+
+    /**
+     * Send a batch of records asynchronously.
+     * Returns a list of Futures that can be checked for completion.
+     */
+    fun sendBatch(
+        topic: String,
+        records: List<Pair<String?, GenericRecord>>,
+    ): List<Future<RecordMetadata>> {
+        return records.map { (key, value) ->
+            send(topic, key, value)
+        }
+    }
+
+    /**
+     * Send a batch of records synchronously.
+     * Waits for all records to be sent before returning.
+     * Returns list of metadata for successfully sent records.
+     * Throws exception on first failure.
+     */
+    fun sendBatchSync(
+        topic: String,
+        records: List<Pair<String?, GenericRecord>>,
+    ): List<RecordMetadata> {
+        val futures = sendBatch(topic, records)
+        return futures.map { it.get() }
+    }
+
+    /**
+     * Flush all pending records.
+     * Blocks until all previously sent records are acknowledged.
+     */
+    fun flush() {
+        producer.flush()
     }
 
     override fun close() {
