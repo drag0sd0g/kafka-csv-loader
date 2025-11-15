@@ -6,10 +6,11 @@ plugins {
     id("com.github.davidmc24.gradle.plugin.avro") version "1.9.1"
     id("org.jlleitschuh.gradle.ktlint") version "12.1.0"
     jacoco
+    id("pl.allegro.tech.build.axion-release") version "1.17.0"
 }
 
 group = "com.dragos"
-version = "0.1.0-SNAPSHOT"
+version = scmVersion.version
 
 repositories {
     mavenCentral()
@@ -85,6 +86,7 @@ tasks.withType<Test> {
 tasks.jar {
     manifest {
         attributes["Main-Class"] = "com.dragos.kafkacsvloader.MainKt"
+        attributes["Implementation-Version"] = version
     }
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })

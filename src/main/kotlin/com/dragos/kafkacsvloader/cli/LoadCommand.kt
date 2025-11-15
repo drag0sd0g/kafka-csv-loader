@@ -1,4 +1,4 @@
-package com.dragos.kafkacsvloader.cli
+package com.dragos.kafkacsvloader
 
 import com.dragos.kafkacsvloader.avro.AvroRecordMapper
 import com.dragos.kafkacsvloader.avro.AvroSchemaLoader
@@ -7,158 +7,157 @@ import com.dragos.kafkacsvloader.csv.CsvParser
 import com.dragos.kafkacsvloader.kafka.KafkaProducerClient
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.options.default
-import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
-import com.github.ajalt.mordant.rendering.TextColors.brightBlue
+import com.github.ajalt.clikt.parameters.options.versionOption
 import com.github.ajalt.mordant.rendering.TextColors.cyan
 import com.github.ajalt.mordant.rendering.TextColors.green
 import com.github.ajalt.mordant.rendering.TextColors.red
 import com.github.ajalt.mordant.rendering.TextColors.yellow
+import com.github.ajalt.mordant.rendering.TextStyles.bold
 import com.github.ajalt.mordant.terminal.Terminal
-import org.slf4j.LoggerFactory
-import java.util.UUID
+import kotlin.system.exitProcess
 
-class LoadCommand : CliktCommand(
-    name = "load",
+class KafkaCsvLoaderCommand : CliktCommand(
+    name = "kafka-csv-loader",
     help = "Load CSV data into Kafka with Avro schema validation",
 ) {
-    private val csvPath by option("--csv", "-c", help = "Path to CSV file").required()
+    private val csvFile by option("--csv", "-c", help = "Path to CSV file").required()
+    private val schemaFile by option("--schema", "-s", help = "Path to Avro schema file (.avsc)").required()
     private val topic by option("--topic", "-t", help = "Kafka topic name").required()
-    private val schemaPath by option("--schema", "-s", help = "Path to Avro schema file (.avsc)").required()
-    private val bootstrapServers by option("--bootstrap-servers", "-b", help = "Kafka bootstrap servers")
-        .default("localhost:9092")
-    private val schemaRegistryUrl by option("--schema-registry", "-r", help = "Schema Registry URL")
-        .default("http://localhost:8081")
-    private val keyColumn by option("--key-column", "-k", help = "CSV column to use as Kafka record key (optional)")
-    private val dryRun by option("--dry-run", help = "Validate and map rows without sending to Kafka").flag()
+    private val bootstrapServers by option(
+        "--bootstrap-servers",
+        "-b",
+        help = "Kafka bootstrap servers",
+    ).default("localhost:9092")
+    private val schemaRegistry by option(
+        "--schema-registry",
+        "-r",
+        help = "Schema Registry URL",
+    ).default("http://localhost:8081")
+    private val keyField by option(
+        "--key-field",
+        "-k",
+        help = "CSV column to use as Kafka message key (optional)",
+    )
+
+    init {
+        versionOption(getVersion())
+    }
 
     private val terminal = Terminal()
-    private val log = LoggerFactory.getLogger(javaClass)
 
     override fun run() {
-        terminal.println(brightBlue("=== Kafka CSV Loader ==="))
+        terminal.println(bold(cyan("🚀 Kafka CSV Loader")))
         terminal.println()
 
-        printConfiguration()
-
         try {
-            // Step 1: Load Avro schema
-            terminal.println(yellow("Loading Avro schema..."))
-            val schema = AvroSchemaLoader.loadFromFile(schemaPath)
-            terminal.println(green("✓ Schema loaded: ${schema.name}"))
+            // Step 1: Load schema
+            terminal.print(yellow("📋 Loading Avro schema... "))
+            val schema = AvroSchemaLoader.loadFromFile(schemaFile)
+            terminal.println(green("✓"))
+            terminal.println("   Schema: ${schema.namespace}.${schema.name}")
+            terminal.println("   Fields: ${schema.fields.joinToString(", ") { it.name() }}")
             terminal.println()
 
             // Step 2: Parse CSV
-            terminal.println(yellow("Parsing CSV file..."))
-            val csv = CsvParser.parse(csvPath)
-            terminal.println(green("✓ CSV parsed: ${csv.rows.size} rows, ${csv.headers.size} columns"))
+            terminal.print(yellow("📄 Parsing CSV file... "))
+            val csvData = CsvParser.parse(csvFile)
+            terminal.println(green("✓"))
+            terminal.println("   Headers: ${csvData.headers.joinToString(", ")}")
+            terminal.println("   Rows: ${csvData.rows.size}")
             terminal.println()
 
             // Step 3: Validate headers
-            terminal.println(yellow("Validating CSV headers against schema..."))
+            terminal.print(yellow("🔍 Validating CSV headers against schema... "))
             val schemaFields = schema.fields.map { it.name() }
-            if (!CsvParser.validateHeaders(csv.headers, schemaFields)) {
-                val missing = CsvParser.getMissingFields(csv.headers, schemaFields)
-                terminal.println(red("✗ Validation failed: CSV is missing required schema fields: $missing"))
-                throw IllegalArgumentException("CSV headers do not match schema fields")
+            if (!CsvParser.validateHeaders(csvData.headers, schemaFields)) {
+                val missing = CsvParser.getMissingFields(csvData.headers, schemaFields)
+                terminal.println(red("✗"))
+                terminal.println(red("   Missing required fields: ${missing.joinToString(", ")}"))
+                exitProcess(1)
             }
-            terminal.println(green("✓ Headers validated"))
+            terminal.println(green("✓"))
             terminal.println()
 
-            // Step 4: Process rows
-            if (dryRun) {
-                terminal.println(cyan("DRY RUN MODE: Validating and mapping rows (not sending to Kafka)"))
-            } else {
-                terminal.println(yellow("Processing rows and sending to Kafka..."))
-            }
+            // Step 4: Connect to Kafka
+            terminal.print(yellow("🔌 Connecting to Kafka... "))
+            terminal.println()
+            terminal.println("   Bootstrap servers: $bootstrapServers")
+            terminal.println("   Schema Registry: $schemaRegistry")
+            terminal.println("   Topic: $topic")
             terminal.println()
 
-            val producer =
-                if (!dryRun) {
-                    KafkaProducerClient(bootstrapServers, schemaRegistryUrl)
-                } else {
-                    null
-                }
+            // Step 5: Process and send records
+            KafkaProducerClient(bootstrapServers, schemaRegistry).use { producer ->
+                terminal.println(yellow("📤 Sending records to Kafka..."))
+                terminal.println()
 
-            var successCount = 0
-            val failures = mutableListOf<Pair<Int, List<String>>>()
+                var successCount = 0
+                var failureCount = 0
+                val failures = mutableListOf<Pair<Int, String>>()
 
-            try {
-                csv.rows.forEachIndexed { index, row ->
+                csvData.rows.forEachIndexed { index, row ->
                     val rowNumber = index + 1
-                    val key = keyColumn?.let { row[it] } ?: UUID.randomUUID().toString()
+                    val result = AvroRecordMapper.mapRow(schema, row)
 
-                    when (val result = AvroRecordMapper.mapRow(schema, row)) {
+                    when (result) {
                         is RowMappingResult.Success -> {
-                            if (dryRun) {
-                                terminal.println("  Row $rowNumber: ${green("✓")} Mapped successfully")
-                                log.debug("Row {} mapped: {}", rowNumber, result.record)
-                            } else {
-                                try {
-                                    producer!!.sendSync(topic, key, result.record)
-                                    successCount++
-                                    if (rowNumber % 100 == 0) {
-                                        terminal.println("  Processed $rowNumber rows...")
-                                    }
-                                } catch (e: Exception) {
-                                    failures.add(rowNumber to listOf("Kafka send failed: ${e.message}"))
-                                    log.error("Failed to send row {}", rowNumber, e)
+                            val key = keyField?.let { row[it] }
+                            try {
+                                producer.sendSync(topic, key, result.record)
+                                successCount++
+                                terminal.print(green("✓"))
+                                if (rowNumber % 50 == 0) {
+                                    terminal.println(" $rowNumber")
                                 }
+                            } catch (e: Exception) {
+                                failureCount++
+                                failures.add(rowNumber to "Kafka error: ${e.message}")
+                                terminal.print(red("✗"))
                             }
                         }
                         is RowMappingResult.Failure -> {
-                            failures.add(rowNumber to result.errors)
-                            terminal.println("  Row $rowNumber: ${red("✗")} ${result.errors.joinToString(", ")}")
+                            failureCount++
+                            failures.add(rowNumber to result.errors.joinToString("; "))
+                            terminal.print(red("✗"))
                         }
                     }
                 }
-            } finally {
-                producer?.close()
-            }
-
-            // Step 5: Print summary
-            terminal.println()
-            terminal.println(brightBlue("=== Summary ==="))
-            terminal.println("Total rows: ${csv.rows.size}")
-            if (!dryRun) {
-                terminal.println(green("Successfully sent: $successCount"))
-            } else {
-                terminal.println(green("Successfully validated: ${csv.rows.size - failures.size}"))
-            }
-            terminal.println(red("Failed: ${failures.size}"))
-
-            if (failures.isNotEmpty()) {
                 terminal.println()
-                terminal.println(red("Failed rows:"))
-                failures.take(10).forEach { (rowNum, errors) ->
-                    terminal.println("  Row $rowNum: ${errors.joinToString(", ")}")
-                }
-                if (failures.size > 10) {
-                    terminal.println("  ... and ${failures.size - 10} more")
-                }
-            }
+                terminal.println()
 
-            if (failures.isNotEmpty()) {
-                throw IllegalStateException("${failures.size} rows failed validation or send")
+                // Step 6: Summary
+                terminal.println(bold(cyan("📊 Summary")))
+                terminal.println(green("   ✓ Success: $successCount"))
+                if (failureCount > 0) {
+                    terminal.println(red("   ✗ Failures: $failureCount"))
+                    terminal.println()
+                    terminal.println(yellow("   Failed rows:"))
+                    failures.take(10).forEach { (rowNum, error) ->
+                        terminal.println(red("     Row $rowNum: $error"))
+                    }
+                    if (failures.size > 10) {
+                        terminal.println(yellow("     ... and ${failures.size - 10} more"))
+                    }
+                    exitProcess(1)
+                }
+                terminal.println()
+                terminal.println(bold(green("✅ All records successfully loaded!")))
             }
         } catch (e: Exception) {
             terminal.println()
-            terminal.println(red("✗ Error: ${e.message}"))
-            log.error("Load command failed", e)
-            throw e
+            terminal.println(red(bold("❌ Error: ${e.message}")))
+            if (e.cause != null) {
+                terminal.println(red("   Caused by: ${e.cause?.message}"))
+            }
+            exitProcess(1)
         }
     }
 
-    private fun printConfiguration() {
-        terminal.println(cyan("Configuration:"))
-        terminal.println("  CSV file: $csvPath")
-        terminal.println("  Kafka topic: $topic")
-        terminal.println("  Avro schema: $schemaPath")
-        terminal.println("  Bootstrap servers: $bootstrapServers")
-        terminal.println("  Schema Registry: $schemaRegistryUrl")
-        terminal.println("  Key column: ${keyColumn ?: "(auto-generated UUID)"}")
-        terminal.println("  Dry run: $dryRun")
-        terminal.println()
+    private fun getVersion(): String {
+        return this::class.java.`package`.implementationVersion ?: "development"
     }
 }
+
+fun main(args: Array<String>) = KafkaCsvLoaderCommand().main(args)

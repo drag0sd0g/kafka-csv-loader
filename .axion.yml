@@ -1,0 +1,22 @@
+# Axion Release Plugin configuration
+versionCreator: versionWithBranch
+
+# Version format
+tag:
+  prefix: 'v'
+  versionSeparator: ''
+
+# Semantic versioning
+versionIncrementer: incrementMinor
+
+# Branch rules
+branchVersionCreators:
+  main:
+    versionIncrementer: incrementPatch
+  develop:
+    versionIncrementer: incrementMinor
+
+# Ignore certain files for version bumps
+checks:
+  uncommittedChanges: false
+  aheadOfRemote: false

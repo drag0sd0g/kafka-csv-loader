@@ -21,6 +21,10 @@ class KafkaCsvLoaderCommand : CliktCommand(
     name = "kafka-csv-loader",
     help = "Load CSV data into Kafka with Avro schema validation",
 ) {
+    init {
+        versionOption(version = getVersion())
+    }
+
     private val csvFile by option("--csv", "-c", help = "Path to CSV file").required()
     private val schemaFile by option("--schema", "-s", help = "Path to Avro schema file (.avsc)").required()
     private val topic by option("--topic", "-t", help = "Kafka topic name").required()
@@ -148,6 +152,10 @@ class KafkaCsvLoaderCommand : CliktCommand(
             }
             exitProcess(1)
         }
+    }
+
+    private fun getVersion(): String {
+        return this::class.java.`package`.implementationVersion ?: "development"
     }
 }
 
