@@ -5,6 +5,7 @@ plugins {
     application
     id("com.github.davidmc24.gradle.plugin.avro") version "1.9.1"
     id("org.jlleitschuh.gradle.ktlint") version "12.1.0"
+    jacoco
 }
 
 group = "com.dragos"
@@ -61,20 +62,23 @@ tasks.withType<KotlinCompile> {
 
 tasks.withType<Test> {
     useJUnitPlatform()
-    
+
     // Set Docker socket for Testcontainers when using Colima
     val dockerSocket = "${System.getProperty("user.home")}/.colima/default/docker.sock"
     environment("DOCKER_HOST", "unix://$dockerSocket")
     environment("TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE", dockerSocket)
-    
+
     // IMPORTANT: Disable Ryuk for Colima compatibility
     environment("TESTCONTAINERS_RYUK_DISABLED", "true")
-    
+
     testLogging {
         events("passed", "skipped", "failed")
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
         showStandardStreams = true
     }
+
+    // Generate coverage report after tests
+    finalizedBy(tasks.jacocoTestReport)
 }
 
 // Fat JAR configuration
@@ -100,16 +104,88 @@ ktlint {
     android.set(false)
     outputToConsole.set(true)
     ignoreFailures.set(false)
-    
+
     filter {
         exclude("**/generated/**")
+        exclude("**/build/**")
         include("**/kotlin/**")
+    }
+}
+
+// Fix ktlint dependency on Avro generation
+tasks.named("runKtlintCheckOverMainSourceSet") {
+    dependsOn("generateAvroJava")
+}
+
+tasks.named("runKtlintCheckOverTestSourceSet") {
+    dependsOn("generateTestAvroJava")
+}
+
+tasks.named("runKtlintFormatOverMainSourceSet") {
+    dependsOn("generateAvroJava")
+}
+
+tasks.named("runKtlintFormatOverTestSourceSet") {
+    dependsOn("generateTestAvroJava")
+}
+
+// JaCoCo configuration
+jacoco {
+    toolVersion = "0.8.11"
+}
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        csv.required.set(false)
+    }
+
+    classDirectories.setFrom(
+        files(
+            classDirectories.files.map {
+                fileTree(it) {
+                    exclude(
+                        "**/generated/**",
+                    )
+                }
+            },
+        ),
+    )
+}
+
+tasks.jacocoTestCoverageVerification {
+    dependsOn(tasks.jacocoTestReport)
+
+    violationRules {
+        rule {
+            limit {
+                minimum = "0.80".toBigDecimal() // 80% minimum coverage
+            }
+        }
+
+        rule {
+            element = "CLASS"
+            limit {
+                counter = "LINE"
+                value = "COVEREDRATIO"
+                minimum = "0.70".toBigDecimal() // 70% per class
+            }
+            excludes =
+                listOf(
+                    "*.Main*",
+                    "*.*Kt",
+                )
+        }
     }
 }
 
 // Make build depend on ktlint checks
 tasks.named("check") {
     dependsOn("ktlintCheck")
+    dependsOn("jacocoTestCoverageVerification")
 }
 
 // Auto-format code before compiling
@@ -119,4 +195,4 @@ tasks.named("compileKotlin") {
 
 tasks.named("compileTestKotlin") {
     dependsOn("ktlintFormat")
-}   
+}
