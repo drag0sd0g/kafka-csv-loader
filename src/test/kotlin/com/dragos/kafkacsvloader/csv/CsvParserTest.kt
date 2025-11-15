@@ -1,30 +1,31 @@
 package com.dragos.kafkacsvloader.csv
 
 import io.kotest.assertions.throwables.shouldThrow
-import io.kotest.matchers.shouldBe
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
 class CsvParserTest {
-
     @TempDir
     lateinit var tempDir: File
 
     @Test
     fun `should parse valid CSV file`() {
         // Given
-        val csvContent = """
+        val csvContent =
+            """
             id,name,email,age
             1,Alice,alice@example.com,30
             2,Bob,bob@example.com,25
-        """.trimIndent()
-        val csvFile = File(tempDir, "users.csv").apply {
-            writeText(csvContent)
-        }
+            """.trimIndent()
+        val csvFile =
+            File(tempDir, "users.csv").apply {
+                writeText(csvContent)
+            }
 
         // When
         val csvData = CsvParser.parse(csvFile.absolutePath)
@@ -43,32 +44,36 @@ class CsvParserTest {
     @Test
     fun `should throw exception when file does not exist`() {
         // When/Then
-        val exception = shouldThrow<IllegalArgumentException> {
-            CsvParser.parse("/nonexistent/file.csv")
-        }
+        val exception =
+            shouldThrow<IllegalArgumentException> {
+                CsvParser.parse("/nonexistent/file.csv")
+            }
         exception.message shouldContain "not found"
     }
 
     @Test
     fun `should throw exception when file is not a CSV`() {
         // Given
-        val txtFile = File(tempDir, "data.txt").apply {
-            writeText("some text")
-        }
+        val txtFile =
+            File(tempDir, "data.txt").apply {
+                writeText("some text")
+            }
 
         // When/Then
-        val exception = shouldThrow<IllegalArgumentException> {
-            CsvParser.parse(txtFile.absolutePath)
-        }
+        val exception =
+            shouldThrow<IllegalArgumentException> {
+                CsvParser.parse(txtFile.absolutePath)
+            }
         exception.message shouldContain ".csv extension"
     }
 
     @Test
     fun `should throw exception when CSV is empty`() {
         // Given
-        val emptyFile = File(tempDir, "empty.csv").apply {
-            writeText("")
-        }
+        val emptyFile =
+            File(tempDir, "empty.csv").apply {
+                writeText("")
+            }
 
         // When/Then
         shouldThrow<IllegalArgumentException> {
@@ -79,28 +84,32 @@ class CsvParserTest {
     @Test
     fun `should throw exception when CSV has headers but no data rows`() {
         // Given
-        val headerOnlyFile = File(tempDir, "headers_only.csv").apply {
-            writeText("id,name,email")
-        }
+        val headerOnlyFile =
+            File(tempDir, "headers_only.csv").apply {
+                writeText("id,name,email")
+            }
 
         // When/Then
-        val exception = shouldThrow<IllegalArgumentException> {
-            CsvParser.parse(headerOnlyFile.absolutePath)
-        }
+        val exception =
+            shouldThrow<IllegalArgumentException> {
+                CsvParser.parse(headerOnlyFile.absolutePath)
+            }
         exception.message shouldContain "empty"
     }
 
     @Test
     fun `should handle CSV with quoted values`() {
         // Given
-        val csvContent = """
+        val csvContent =
+            """
             id,name,description
             1,"Alice","A user with, comma"
             2,"Bob","Another ""quoted"" value"
-        """.trimIndent()
-        val csvFile = File(tempDir, "quoted.csv").apply {
-            writeText(csvContent)
-        }
+            """.trimIndent()
+        val csvFile =
+            File(tempDir, "quoted.csv").apply {
+                writeText(csvContent)
+            }
 
         // When
         val csvData = CsvParser.parse(csvFile.absolutePath)
@@ -166,13 +175,15 @@ class CsvParserTest {
     @Test
     fun `should handle CSV with extra columns not in schema`() {
         // Given
-        val csvContent = """
+        val csvContent =
+            """
             id,name,email,extra_column
             1,Alice,alice@example.com,extra_value
-        """.trimIndent()
-        val csvFile = File(tempDir, "extra_cols.csv").apply {
-            writeText(csvContent)
-        }
+            """.trimIndent()
+        val csvFile =
+            File(tempDir, "extra_cols.csv").apply {
+                writeText(csvContent)
+            }
 
         // When
         val csvData = CsvParser.parse(csvFile.absolutePath)
@@ -185,14 +196,16 @@ class CsvParserTest {
     @Test
     fun `should handle CSV with empty cells`() {
         // Given
-        val csvContent = """
+        val csvContent =
+            """
             id,name,email
             1,Alice,
             2,,bob@example.com
-        """.trimIndent()
-        val csvFile = File(tempDir, "empty_cells.csv").apply {
-            writeText(csvContent)
-        }
+            """.trimIndent()
+        val csvFile =
+            File(tempDir, "empty_cells.csv").apply {
+                writeText(csvContent)
+            }
 
         // When
         val csvData = CsvParser.parse(csvFile.absolutePath)

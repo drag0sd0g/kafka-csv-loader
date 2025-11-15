@@ -10,14 +10,18 @@ import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
-import com.github.ajalt.mordant.rendering.TextColors.*
+import com.github.ajalt.mordant.rendering.TextColors.brightBlue
+import com.github.ajalt.mordant.rendering.TextColors.cyan
+import com.github.ajalt.mordant.rendering.TextColors.green
+import com.github.ajalt.mordant.rendering.TextColors.red
+import com.github.ajalt.mordant.rendering.TextColors.yellow
 import com.github.ajalt.mordant.terminal.Terminal
 import org.slf4j.LoggerFactory
 import java.util.UUID
 
 class LoadCommand : CliktCommand(
     name = "load",
-    help = "Load CSV data into Kafka with Avro schema validation"
+    help = "Load CSV data into Kafka with Avro schema validation",
 ) {
     private val csvPath by option("--csv", "-c", help = "Path to CSV file").required()
     private val topic by option("--topic", "-t", help = "Kafka topic name").required()
@@ -35,9 +39,9 @@ class LoadCommand : CliktCommand(
     override fun run() {
         terminal.println(brightBlue("=== Kafka CSV Loader ==="))
         terminal.println()
-        
+
         printConfiguration()
-        
+
         try {
             // Step 1: Load Avro schema
             terminal.println(yellow("Loading Avro schema..."))
@@ -70,9 +74,12 @@ class LoadCommand : CliktCommand(
             }
             terminal.println()
 
-            val producer = if (!dryRun) {
-                KafkaProducerClient(bootstrapServers, schemaRegistryUrl)
-            } else null
+            val producer =
+                if (!dryRun) {
+                    KafkaProducerClient(bootstrapServers, schemaRegistryUrl)
+                } else {
+                    null
+                }
 
             var successCount = 0
             val failures = mutableListOf<Pair<Int, List<String>>>()
@@ -135,7 +142,6 @@ class LoadCommand : CliktCommand(
             if (failures.isNotEmpty()) {
                 throw IllegalStateException("${failures.size} rows failed validation or send")
             }
-
         } catch (e: Exception) {
             terminal.println()
             terminal.println(red("✗ Error: ${e.message}"))

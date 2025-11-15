@@ -6,6 +6,7 @@ import org.apache.avro.generic.GenericRecord
 
 sealed interface RowMappingResult {
     data class Success(val record: GenericRecord) : RowMappingResult
+
     data class Failure(val errors: List<String>) : RowMappingResult
 }
 
@@ -15,7 +16,10 @@ sealed interface RowMappingResult {
  * TODO: extend to handle records, enums, arrays, maps, complex unions.
  */
 object AvroRecordMapper {
-    fun mapRow(schema: Schema, row: Map<String, String?>): RowMappingResult {
+    fun mapRow(
+        schema: Schema,
+        row: Map<String, String?>,
+    ): RowMappingResult {
         val record = GenericData.Record(schema)
         val errors = mutableListOf<String>()
 
@@ -25,7 +29,7 @@ object AvroRecordMapper {
             val resolvedSchema = resolveSchema(fieldSchema)
 
             val rawValue = row[fieldName]?.trim()
-            
+
             // Handle missing or empty values
             if (rawValue.isNullOrEmpty()) {
                 when {
@@ -69,11 +73,14 @@ object AvroRecordMapper {
     }
 
     private fun isNullable(schema: Schema): Boolean {
-        return schema.type == Schema.Type.UNION && 
-               schema.types.any { it.type == Schema.Type.NULL }
+        return schema.type == Schema.Type.UNION &&
+            schema.types.any { it.type == Schema.Type.NULL }
     }
 
-    private fun convertValue(schema: Schema, raw: String): Any {
+    private fun convertValue(
+        schema: Schema,
+        raw: String,
+    ): Any {
         return when (schema.type) {
             Schema.Type.STRING -> raw
             Schema.Type.INT -> raw.toInt()

@@ -1,17 +1,17 @@
 package com.dragos.kafkacsvloader.avro
 
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.types.shouldBeInstanceOf
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.types.shouldBeInstanceOf
 import org.apache.avro.Schema
 import org.junit.jupiter.api.Test
 
 class AvroRecordMapperTest {
-
     @Test
     fun `should map valid row with all primitive types`() {
         // Given
-        val schemaText = """
+        val schemaText =
+            """
             {
               "type": "record",
               "name": "User",
@@ -24,16 +24,17 @@ class AvroRecordMapperTest {
                 {"name": "active", "type": "boolean"}
               ]
             }
-        """.trimIndent()
+            """.trimIndent()
         val schema = Schema.Parser().parse(schemaText)
-        val row = mapOf(
-            "id" to "42",
-            "name" to "Alice",
-            "age" to "30",
-            "score" to "95.5",
-            "rating" to "4.5",
-            "active" to "true"
-        )
+        val row =
+            mapOf(
+                "id" to "42",
+                "name" to "Alice",
+                "age" to "30",
+                "score" to "95.5",
+                "rating" to "4.5",
+                "active" to "true",
+            )
 
         // When
         val result = AvroRecordMapper.mapRow(schema, row)
@@ -52,7 +53,8 @@ class AvroRecordMapperTest {
     @Test
     fun `should handle nullable fields with null values`() {
         // Given
-        val schemaText = """
+        val schemaText =
+            """
             {
               "type": "record",
               "name": "User",
@@ -61,12 +63,13 @@ class AvroRecordMapperTest {
                 {"name": "email", "type": ["null", "string"], "default": null}
               ]
             }
-        """.trimIndent()
+            """.trimIndent()
         val schema = Schema.Parser().parse(schemaText)
-        val row = mapOf(
-            "id" to "42",
-            "email" to ""
-        )
+        val row =
+            mapOf(
+                "id" to "42",
+                "email" to "",
+            )
 
         // When
         val result = AvroRecordMapper.mapRow(schema, row)
@@ -81,7 +84,8 @@ class AvroRecordMapperTest {
     @Test
     fun `should handle nullable fields with values`() {
         // Given
-        val schemaText = """
+        val schemaText =
+            """
             {
               "type": "record",
               "name": "User",
@@ -90,12 +94,13 @@ class AvroRecordMapperTest {
                 {"name": "email", "type": ["null", "string"], "default": null}
               ]
             }
-        """.trimIndent()
+            """.trimIndent()
         val schema = Schema.Parser().parse(schemaText)
-        val row = mapOf(
-            "id" to "42",
-            "email" to "alice@example.com"
-        )
+        val row =
+            mapOf(
+                "id" to "42",
+                "email" to "alice@example.com",
+            )
 
         // When
         val result = AvroRecordMapper.mapRow(schema, row)
@@ -109,7 +114,8 @@ class AvroRecordMapperTest {
     @Test
     fun `should fail when required field is missing`() {
         // Given
-        val schemaText = """
+        val schemaText =
+            """
             {
               "type": "record",
               "name": "User",
@@ -118,7 +124,7 @@ class AvroRecordMapperTest {
                 {"name": "name", "type": "string"}
               ]
             }
-        """.trimIndent()
+            """.trimIndent()
         val schema = Schema.Parser().parse(schemaText)
         val row = mapOf("id" to "42")
 
@@ -137,7 +143,8 @@ class AvroRecordMapperTest {
     @Test
     fun `should fail when type conversion fails`() {
         // Given
-        val schemaText = """
+        val schemaText =
+            """
             {
               "type": "record",
               "name": "User",
@@ -146,12 +153,13 @@ class AvroRecordMapperTest {
                 {"name": "age", "type": "int"}
               ]
             }
-        """.trimIndent()
+            """.trimIndent()
         val schema = Schema.Parser().parse(schemaText)
-        val row = mapOf(
-            "id" to "42",
-            "age" to "not-a-number"
-        )
+        val row =
+            mapOf(
+                "id" to "42",
+                "age" to "not-a-number",
+            )
 
         // When
         val result = AvroRecordMapper.mapRow(schema, row)
@@ -168,7 +176,8 @@ class AvroRecordMapperTest {
     @Test
     fun `should fail with multiple errors for multiple invalid fields`() {
         // Given
-        val schemaText = """
+        val schemaText =
+            """
             {
               "type": "record",
               "name": "User",
@@ -178,13 +187,14 @@ class AvroRecordMapperTest {
                 {"name": "score", "type": "double"}
               ]
             }
-        """.trimIndent()
+            """.trimIndent()
         val schema = Schema.Parser().parse(schemaText)
-        val row = mapOf(
-            "id" to "not-an-int",
-            "age" to "not-a-number",
-            "score" to "invalid"
-        )
+        val row =
+            mapOf(
+                "id" to "not-an-int",
+                "age" to "not-a-number",
+                "score" to "invalid",
+            )
 
         // When
         val result = AvroRecordMapper.mapRow(schema, row)
@@ -198,7 +208,8 @@ class AvroRecordMapperTest {
     @Test
     fun `should handle boolean conversion`() {
         // Given
-        val schemaText = """
+        val schemaText =
+            """
             {
               "type": "record",
               "name": "User",
@@ -206,7 +217,7 @@ class AvroRecordMapperTest {
                 {"name": "active", "type": "boolean"}
               ]
             }
-        """.trimIndent()
+            """.trimIndent()
         val schema = Schema.Parser().parse(schemaText)
 
         // When/Then - true
@@ -223,7 +234,8 @@ class AvroRecordMapperTest {
     @Test
     fun `should fail for invalid boolean values`() {
         // Given
-        val schemaText = """
+        val schemaText =
+            """
             {
               "type": "record",
               "name": "User",
@@ -231,7 +243,7 @@ class AvroRecordMapperTest {
                 {"name": "active", "type": "boolean"}
               ]
             }
-        """.trimIndent()
+            """.trimIndent()
         val schema = Schema.Parser().parse(schemaText)
 
         // When
@@ -244,7 +256,8 @@ class AvroRecordMapperTest {
     @Test
     fun `should handle whitespace in values`() {
         // Given
-        val schemaText = """
+        val schemaText =
+            """
             {
               "type": "record",
               "name": "User",
@@ -253,12 +266,13 @@ class AvroRecordMapperTest {
                 {"name": "name", "type": "string"}
               ]
             }
-        """.trimIndent()
+            """.trimIndent()
         val schema = Schema.Parser().parse(schemaText)
-        val row = mapOf(
-            "id" to "  42  ",
-            "name" to "  Alice  "
-        )
+        val row =
+            mapOf(
+                "id" to "  42  ",
+                "name" to "  Alice  ",
+            )
 
         // When
         val result = AvroRecordMapper.mapRow(schema, row)
@@ -273,7 +287,8 @@ class AvroRecordMapperTest {
     @Test
     fun `should handle enum types`() {
         // Given
-        val schemaText = """
+        val schemaText =
+            """
             {
               "type": "record",
               "name": "User",
@@ -281,7 +296,7 @@ class AvroRecordMapperTest {
                 {"name": "status", "type": {"type": "enum", "name": "Status", "symbols": ["ACTIVE", "INACTIVE", "PENDING"]}}
               ]
             }
-        """.trimIndent()
+            """.trimIndent()
         val schema = Schema.Parser().parse(schemaText)
         val row = mapOf("status" to "ACTIVE")
 
@@ -297,7 +312,8 @@ class AvroRecordMapperTest {
     @Test
     fun `should fail for invalid enum value`() {
         // Given
-        val schemaText = """
+        val schemaText =
+            """
             {
               "type": "record",
               "name": "User",
@@ -305,7 +321,7 @@ class AvroRecordMapperTest {
                 {"name": "status", "type": {"type": "enum", "name": "Status", "symbols": ["ACTIVE", "INACTIVE"]}}
               ]
             }
-        """.trimIndent()
+            """.trimIndent()
         val schema = Schema.Parser().parse(schemaText)
         val row = mapOf("status" to "INVALID_STATUS")
 

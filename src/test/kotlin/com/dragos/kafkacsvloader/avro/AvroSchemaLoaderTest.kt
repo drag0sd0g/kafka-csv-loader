@@ -10,14 +10,14 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
 class AvroSchemaLoaderTest {
-
     @TempDir
     lateinit var tempDir: File
 
     @Test
     fun `should load valid avro schema`() {
         // Given
-        val schemaContent = """
+        val schemaContent =
+            """
             {
               "type": "record",
               "name": "User",
@@ -27,10 +27,11 @@ class AvroSchemaLoaderTest {
                 {"name": "name", "type": "string"}
               ]
             }
-        """.trimIndent()
-        val schemaFile = File(tempDir, "user.avsc").apply {
-            writeText(schemaContent)
-        }
+            """.trimIndent()
+        val schemaFile =
+            File(tempDir, "user.avsc").apply {
+                writeText(schemaContent)
+            }
 
         // When
         val schema = AvroSchemaLoader.loadFromFile(schemaFile.absolutePath)
@@ -49,25 +50,28 @@ class AvroSchemaLoaderTest {
         val nonExistentPath = "/path/to/nonexistent/schema.avsc"
 
         // When/Then
-        val exception = shouldThrow<IllegalArgumentException> {
-            AvroSchemaLoader.loadFromFile(nonExistentPath)
-        }
+        val exception =
+            shouldThrow<IllegalArgumentException> {
+                AvroSchemaLoader.loadFromFile(nonExistentPath)
+            }
         exception.message shouldContain "not found"
     }
 
     @Test
     fun `should throw exception when file is not readable`() {
         // Given
-        val schemaFile = File(tempDir, "unreadable.avsc").apply {
-            writeText("{}")
-            setReadable(false)
-        }
+        val schemaFile =
+            File(tempDir, "unreadable.avsc").apply {
+                writeText("{}")
+                setReadable(false)
+            }
 
         // When/Then
         try {
-            val exception = shouldThrow<IllegalArgumentException> {
-                AvroSchemaLoader.loadFromFile(schemaFile.absolutePath)
-            }
+            val exception =
+                shouldThrow<IllegalArgumentException> {
+                    AvroSchemaLoader.loadFromFile(schemaFile.absolutePath)
+                }
             exception.message shouldContain "not readable"
         } finally {
             schemaFile.setReadable(true) // cleanup
@@ -77,16 +81,18 @@ class AvroSchemaLoaderTest {
     @Test
     fun `should throw exception for invalid schema syntax`() {
         // Given
-        val invalidSchemaContent = """
+        val invalidSchemaContent =
+            """
             {
               "type": "record",
               "name": "User",
               "fields": "THIS IS INVALID"
             }
-        """.trimIndent()
-        val schemaFile = File(tempDir, "invalid.avsc").apply {
-            writeText(invalidSchemaContent)
-        }
+            """.trimIndent()
+        val schemaFile =
+            File(tempDir, "invalid.avsc").apply {
+                writeText(invalidSchemaContent)
+            }
 
         // When/Then
         shouldThrow<Exception> {
@@ -97,7 +103,8 @@ class AvroSchemaLoaderTest {
     @Test
     fun `should handle schema with nullable fields`() {
         // Given
-        val schemaContent = """
+        val schemaContent =
+            """
             {
               "type": "record",
               "name": "User",
@@ -106,10 +113,11 @@ class AvroSchemaLoaderTest {
                 {"name": "email", "type": ["null", "string"], "default": null}
               ]
             }
-        """.trimIndent()
-        val schemaFile = File(tempDir, "user_nullable.avsc").apply {
-            writeText(schemaContent)
-        }
+            """.trimIndent()
+        val schemaFile =
+            File(tempDir, "user_nullable.avsc").apply {
+                writeText(schemaContent)
+            }
 
         // When
         val schema = AvroSchemaLoader.loadFromFile(schemaFile.absolutePath)

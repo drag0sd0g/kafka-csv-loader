@@ -6,32 +6,38 @@ import com.dragos.kafkacsvloader.avro.RowMappingResult
 import com.dragos.kafkacsvloader.csv.CsvParser
 import com.dragos.kafkacsvloader.kafka.KafkaProducerClient
 import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
-import com.github.ajalt.clikt.parameters.options.default
-import com.github.ajalt.mordant.rendering.TextColors.*
-import com.github.ajalt.mordant.rendering.TextStyles.*
+import com.github.ajalt.mordant.rendering.TextColors.cyan
+import com.github.ajalt.mordant.rendering.TextColors.green
+import com.github.ajalt.mordant.rendering.TextColors.red
+import com.github.ajalt.mordant.rendering.TextColors.yellow
+import com.github.ajalt.mordant.rendering.TextStyles.bold
 import com.github.ajalt.mordant.terminal.Terminal
 import kotlin.system.exitProcess
 
 class KafkaCsvLoaderCommand : CliktCommand(
     name = "kafka-csv-loader",
-    help = "Load CSV data into Kafka with Avro schema validation"
+    help = "Load CSV data into Kafka with Avro schema validation",
 ) {
     private val csvFile by option("--csv", "-c", help = "Path to CSV file").required()
     private val schemaFile by option("--schema", "-s", help = "Path to Avro schema file (.avsc)").required()
     private val topic by option("--topic", "-t", help = "Kafka topic name").required()
     private val bootstrapServers by option(
-        "--bootstrap-servers", "-b",
-        help = "Kafka bootstrap servers"
+        "--bootstrap-servers",
+        "-b",
+        help = "Kafka bootstrap servers",
     ).default("localhost:9092")
     private val schemaRegistry by option(
-        "--schema-registry", "-r",
-        help = "Schema Registry URL"
+        "--schema-registry",
+        "-r",
+        help = "Schema Registry URL",
     ).default("http://localhost:8081")
     private val keyField by option(
-        "--key-field", "-k",
-        help = "CSV column to use as Kafka message key (optional)"
+        "--key-field",
+        "-k",
+        help = "CSV column to use as Kafka message key (optional)",
     )
 
     private val terminal = Terminal()
@@ -134,7 +140,6 @@ class KafkaCsvLoaderCommand : CliktCommand(
                 terminal.println()
                 terminal.println(bold(green("✅ All records successfully loaded!")))
             }
-
         } catch (e: Exception) {
             terminal.println()
             terminal.println(red(bold("❌ Error: ${e.message}")))

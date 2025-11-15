@@ -13,7 +13,11 @@ import org.apache.avro.generic.GenericRecord
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.common.serialization.StringDeserializer
-import org.junit.jupiter.api.*
+import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.io.TempDir
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.KafkaContainer
@@ -25,36 +29,37 @@ import java.util.Properties
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class KafkaIntegrationTest {
-
     private lateinit var network: Network
     private lateinit var kafka: KafkaContainer
     private lateinit var schemaRegistry: GenericContainer<*>
-    
+
     private lateinit var bootstrapServers: String
     private lateinit var schemaRegistryUrl: String
 
     @BeforeAll
     fun setup() {
         println("Starting Testcontainers setup...")
-        
+
         network = Network.newNetwork()
         println("✓ Network created")
 
         // Start Kafka
-        kafka = KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.5.3"))
-            .withNetwork(network)
-            .withNetworkAliases("kafka")
+        kafka =
+            KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.5.3"))
+                .withNetwork(network)
+                .withNetworkAliases("kafka")
         println("Starting Kafka container...")
         kafka.start()
         println("✓ Kafka started")
 
         // Start Schema Registry
-        schemaRegistry = GenericContainer(DockerImageName.parse("confluentinc/cp-schema-registry:7.5.3"))
-            .withNetwork(network)
-            .withExposedPorts(8081)
-            .withEnv("SCHEMA_REGISTRY_HOST_NAME", "schema-registry")
-            .withEnv("SCHEMA_REGISTRY_LISTENERS", "http://0.0.0.0:8081")
-            .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "PLAINTEXT://kafka:9092")
+        schemaRegistry =
+            GenericContainer(DockerImageName.parse("confluentinc/cp-schema-registry:7.5.3"))
+                .withNetwork(network)
+                .withExposedPorts(8081)
+                .withEnv("SCHEMA_REGISTRY_HOST_NAME", "schema-registry")
+                .withEnv("SCHEMA_REGISTRY_LISTENERS", "http://0.0.0.0:8081")
+                .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "PLAINTEXT://kafka:9092")
         println("Starting Schema Registry container...")
         schemaRegistry.start()
         println("✓ Schema Registry started")
@@ -82,9 +87,10 @@ class KafkaIntegrationTest {
     @Test
     fun `should load CSV data into Kafka with Avro schema end-to-end`() {
         println("\n=== Running end-to-end test ===")
-        
+
         // Given: Create test schema
-        val schemaContent = """
+        val schemaContent =
+            """
             {
               "type": "record",
               "name": "User",
@@ -97,23 +103,26 @@ class KafkaIntegrationTest {
                 {"name": "active", "type": "boolean"}
               ]
             }
-        """.trimIndent()
-        val schemaFile = File(tempDir, "user.avsc").apply {
-            writeText(schemaContent)
-        }
+            """.trimIndent()
+        val schemaFile =
+            File(tempDir, "user.avsc").apply {
+                writeText(schemaContent)
+            }
         val schema = AvroSchemaLoader.loadFromFile(schemaFile.absolutePath)
         println("✓ Schema loaded")
 
         // Given: Create test CSV
-        val csvContent = """
+        val csvContent =
+            """
             id,name,email,age,active
             1,Alice,alice@example.com,30,true
             2,Bob,bob@example.com,25,false
             3,Charlie,charlie@example.com,35,true
-        """.trimIndent()
-        val csvFile = File(tempDir, "users.csv").apply {
-            writeText(csvContent)
-        }
+            """.trimIndent()
+        val csvFile =
+            File(tempDir, "users.csv").apply {
+                writeText(csvContent)
+            }
         val csvData = CsvParser.parse(csvFile.absolutePath)
         println("✓ CSV parsed: ${csvData.rows.size} rows")
 
@@ -193,9 +202,10 @@ class KafkaIntegrationTest {
     @Test
     fun `should handle validation errors gracefully`() {
         println("\n=== Running validation error test ===")
-        
+
         // Given: Create test schema
-        val schemaContent = """
+        val schemaContent =
+            """
             {
               "type": "record",
               "name": "User",
@@ -205,20 +215,23 @@ class KafkaIntegrationTest {
                 {"name": "name", "type": "string"}
               ]
             }
-        """.trimIndent()
-        val schemaFile = File(tempDir, "user.avsc").apply {
-            writeText(schemaContent)
-        }
+            """.trimIndent()
+        val schemaFile =
+            File(tempDir, "user.avsc").apply {
+                writeText(schemaContent)
+            }
         val schema = AvroSchemaLoader.loadFromFile(schemaFile.absolutePath)
 
         // Given: CSV with invalid data
-        val csvContent = """
+        val csvContent =
+            """
             id,name
             not-a-number,Alice
-        """.trimIndent()
-        val csvFile = File(tempDir, "invalid.csv").apply {
-            writeText(csvContent)
-        }
+            """.trimIndent()
+        val csvFile =
+            File(tempDir, "invalid.csv").apply {
+                writeText(csvContent)
+            }
         val csvData = CsvParser.parse(csvFile.absolutePath)
 
         // When: Try to map invalid row
@@ -231,15 +244,16 @@ class KafkaIntegrationTest {
     }
 
     private fun createConsumer(): KafkaConsumer<String, GenericRecord> {
-        val props = Properties().apply {
-            put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers)
-            put(ConsumerConfig.GROUP_ID_CONFIG, "test-consumer-${System.currentTimeMillis()}")
-            put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
-            put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer::class.java.name)
-            put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, KafkaAvroDeserializer::class.java.name)
-            put(KafkaAvroDeserializerConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryUrl)
-            put(KafkaAvroDeserializerConfig.SPECIFIC_AVRO_READER_CONFIG, false)
-        }
+        val props =
+            Properties().apply {
+                put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers)
+                put(ConsumerConfig.GROUP_ID_CONFIG, "test-consumer-${System.currentTimeMillis()}")
+                put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
+                put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer::class.java.name)
+                put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, KafkaAvroDeserializer::class.java.name)
+                put(KafkaAvroDeserializerConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryUrl)
+                put(KafkaAvroDeserializerConfig.SPECIFIC_AVRO_READER_CONFIG, false)
+            }
         return KafkaConsumer(props)
     }
 }
