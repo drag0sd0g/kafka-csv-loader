@@ -2,29 +2,34 @@
 
 [![Kotlin](https://img.shields.io/badge/Kotlin-1.9.22-blue.svg)](https://kotlinlang.org)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-Passing-success.svg)](https://github.com/drag0sd0g/kafka-csv-loader)
+[![JaCoCo](https://img.shields.io/badge/Coverage-80%25+-success.svg)](build/reports/jacoco/test/html/index.html)
 
 A robust, production-ready Kotlin CLI tool for loading CSV data into Apache Kafka with Avro schema validation and Schema Registry integration.
 
 ## 📋 Overview
 
-Kafka CSV Loader bridges the gap between traditional CSV data formats and modern event streaming platforms. It provides a seamless, type-safe way to migrate CSV data into Kafka topics with full schema validation, making it ideal for:
+Kafka CSV Loader bridges the gap between traditional CSV data formats and modern event streaming platforms. It provides a seamless, type-safe way to migrate CSV data into Kafka topics with full schema validation and registry integration.
 
-- **Data Migration**: Moving legacy CSV data into Kafka-based systems
-- **Batch Loading**: Periodic bulk imports from CSV exports
-- **Data Integration**: Connecting CSV-based systems to event-driven architectures
-- **Testing & Development**: Quickly populating Kafka topics with test data
+**Use Cases:**
+
+-   **Data Migration**: Moving legacy CSV data into Kafka-based systems
+-   **Batch Loading**: Periodic bulk imports from CSV exports
+-   **Data Integration**: Connecting CSV-based systems to event-driven architectures
+-   **Testing & Development**: Quickly populating Kafka topics with test data
+-   **Data Validation**: Dry-run mode to validate CSV data before production loads
 
 ## ✨ Features
 
 ✅ **CSV Parsing** - Intelligent CSV parsing with header validation  
 ✅ **Avro Schema Validation** - Type-safe data validation against Avro schemas  
 ✅ **Schema Registry Integration** - Automatic schema registration and versioning  
+✅ **Dry Run Mode** - Validate CSV and schema without sending to Kafka  
 ✅ **Batch Processing** - Efficient bulk loading with progress tracking  
 ✅ **Error Handling** - Detailed validation errors with row-level reporting  
 ✅ **Flexible Key Selection** - Choose any CSV column as Kafka message key  
 ✅ **Colorful CLI** - Beautiful terminal output with progress indicators  
-✅ **Production Ready** - Comprehensive test coverage with integration tests
+✅ **Production Ready** - 80%+ test coverage with unit and integration tests  
+✅ **Code Quality** - Ktlint formatting, JaCoCo coverage reporting
 
 ## 🏗️ Architecture
 
@@ -54,9 +59,15 @@ Kafka CSV Loader bridges the gap between traditional CSV data formats and modern
          │
          ▼
 ┌─────────────────┐
+│ Dry Run Mode?   │  ← Optional validation
+│                 │    (skip Kafka)
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
 │ Kafka Producer  │  ← Sends to Kafka
 │ (Avro Serial.)  │    Schema Registry
-└────────┬────────┘    Sync/Async
+└────────┬────────┘    Sync mode
          │
          ▼
 ┌─────────────────┐
@@ -67,24 +78,25 @@ Kafka CSV Loader bridges the gap between traditional CSV data formats and modern
 
 ## 🛠️ Technologies
 
-- **Language**: Kotlin 1.9.22 (JVM 21)
-- **Build Tool**: Gradle 8.5 with Kotlin DSL
-- **CLI Framework**: Clikt 4.2.1 (command-line parsing)
-- **Terminal UI**: Mordant 2.2.0 (colored output, progress bars)
-- **CSV Parsing**: kotlin-csv-jvm 1.9.2
-- **Avro**: Apache Avro 1.11.3
-- **Kafka**: kafka-clients 3.6.1
-- **Schema Registry**: Confluent Schema Registry 7.5.3
-- **Testing**: JUnit 5, Kotest, Testcontainers
-- **Containerization**: Docker/Colima support
+-   **Language**: Kotlin 1.9.22 (JVM 21)
+-   **Build Tool**: Gradle 8.14 with Kotlin DSL
+-   **CLI Framework**: Clikt 4.2.1 (command-line parsing)
+-   **Terminal UI**: Mordant 2.2.0 (colored output, progress indicators)
+-   **CSV Parsing**: kotlin-csv-jvm 1.9.2
+-   **Avro**: Apache Avro 1.11.3
+-   **Kafka**: kafka-clients 3.6.1
+-   **Schema Registry**: Confluent Schema Registry 7.5.3
+-   **Testing**: JUnit 5, Kotest, Testcontainers, Mockk
+-   **Code Quality**: Ktlint 1.0.1, JaCoCo 0.8.11
+-   **Containerization**: Docker/Colima support with Testcontainers
 
 ## 📦 Installation
 
 ### Prerequisites
 
-- **Java 21+** (JDK)
-- **Docker or Colima** (for running Kafka locally)
-- **Kafka & Schema Registry** (running instances)
+-   **Java 21+** (JDK)
+-   **Docker or Colima** (for running Kafka locally or integration tests)
+-   **Kafka & Schema Registry** (running instances for production use)
 
 ### Build from Source
 
@@ -93,14 +105,33 @@ Kafka CSV Loader bridges the gap between traditional CSV data formats and modern
 git clone https://github.com/drag0sd0g/kafka-csv-loader.git
 cd kafka-csv-loader
 
-# Build the project
+# Build the project (includes tests, code coverage, linting)
 ./gradlew build
 
 # Build fat JAR
 ./gradlew jar
 
 # The executable JAR will be at:
-# build/libs/kafka-csv-loader-0.1.0-SNAPSHOT.jar
+# build/libs/kafka-csv-loader-*.jar
+```
+
+### Run Tests
+
+```bash
+# Run all tests
+./gradlew test
+
+# Run tests with coverage report
+./gradlew test jacocoTestReport
+
+# View coverage report
+open build/reports/jacoco/test/html/index.html
+
+# Run only unit tests
+./gradlew test --tests "*.csv.*" --tests "*.avro.*"
+
+# Run integration tests (requires Docker/Colima)
+./gradlew test --tests "*IntegrationTest"
 ```
 
 ## 🚀 Quick Start
@@ -120,16 +151,16 @@ id,name,email,age,active
 
 ```json
 {
-  "type": "record",
-  "name": "User",
-  "namespace": "com.example",
-  "fields": [
-    { "name": "id", "type": "int" },
-    { "name": "name", "type": "string" },
-    { "name": "email", "type": "string" },
-    { "name": "age", "type": "int" },
-    { "name": "active", "type": "boolean" }
-  ]
+    "type": "record",
+    "name": "User",
+    "namespace": "com.example",
+    "fields": [
+        { "name": "id", "type": "int" },
+        { "name": "name", "type": "string" },
+        { "name": "email", "type": "string" },
+        { "name": "age", "type": "int" },
+        { "name": "active", "type": "boolean" }
+    ]
 }
 ```
 
@@ -143,10 +174,22 @@ docker-compose up -d kafka schema-registry
 confluent local services start
 ```
 
-### 3. Load Data
+### 3. Validate Data (Dry Run)
+
+Before loading to production, validate your CSV:
 
 ```bash
-java -jar build/libs/kafka-csv-loader-0.1.0-SNAPSHOT.jar \
+java -jar build/libs/kafka-csv-loader-*.jar \
+  --csv users.csv \
+  --schema user-schema.avsc \
+  --topic users \
+  --dry-run
+```
+
+### 4. Load Data to Kafka
+
+```bash
+java -jar build/libs/kafka-csv-loader-*.jar \
   --csv users.csv \
   --schema user-schema.avsc \
   --topic users \
@@ -155,7 +198,7 @@ java -jar build/libs/kafka-csv-loader-0.1.0-SNAPSHOT.jar \
   --key-field id
 ```
 
-### 4. Verify Data in Kafka
+### 5. Verify Data in Kafka
 
 ```bash
 # Using kafka-avro-console-consumer
@@ -181,12 +224,14 @@ Options:
   -b, --bootstrap-servers     Kafka bootstrap servers (default: localhost:9092)
   -r, --schema-registry       Schema Registry URL (default: http://localhost:8081)
   -k, --key-field TEXT        CSV column to use as Kafka message key (optional)
+  -d, --dry-run               Validate CSV and schema without sending to Kafka
+  --version                   Show version and exit
   -h, --help                  Show this message and exit
 ```
 
 ### Examples
 
-**Basic usage:**
+#### Basic Usage
 
 ```bash
 java -jar kafka-csv-loader.jar \
@@ -195,7 +240,7 @@ java -jar kafka-csv-loader.jar \
   --topic my-topic
 ```
 
-**With custom Kafka configuration:**
+#### With Custom Kafka Configuration
 
 ```bash
 java -jar kafka-csv-loader.jar \
@@ -206,7 +251,7 @@ java -jar kafka-csv-loader.jar \
   --schema-registry http://schema-registry:8081
 ```
 
-**Using a specific column as message key:**
+#### Using a Specific Column as Message Key
 
 ```bash
 java -jar kafka-csv-loader.jar \
@@ -216,37 +261,64 @@ java -jar kafka-csv-loader.jar \
   --key-field order_id
 ```
 
-## 🧪 Testing
-
-### Run All Tests
+#### Dry Run Mode (Validation Only)
 
 ```bash
-./gradlew test
+java -jar kafka-csv-loader.jar \
+  --csv users.csv \
+  --schema user-schema.avsc \
+  --topic users \
+  --dry-run
 ```
 
-### Run Unit Tests Only
+## 🔍 Dry Run Mode
 
-```bash
-./gradlew test --tests "*.csv.*" --tests "*.avro.*"
+Validate your CSV and schema without actually sending data to Kafka using the `--dry-run` flag.
+
+**What it does:**
+
+-   ✅ Loads and validates the Avro schema
+-   ✅ Parses the CSV file
+-   ✅ Validates CSV headers match schema fields
+-   ✅ Validates all rows can be mapped to Avro records
+-   ✅ Reports validation errors with row numbers
+-   ❌ **Does NOT** connect to Kafka
+-   ❌ **Does NOT** send any data
+
+**Use cases:**
+
+-   Test your CSV data before loading to production
+-   Validate schema compatibility
+-   Find data quality issues early
+-   CI/CD pipeline validation
+
+**Example output:**
+
 ```
+🚀 Kafka CSV Loader
+   DRY RUN MODE - No data will be sent to Kafka
 
-### Run Integration Tests
+📋 Loading Avro schema... ✓
+   Schema: com.example.User
+   Fields: id, name, email, age
 
-**Note**: Integration tests require Docker/Colima to be running.
+📄 Parsing CSV file... ✓
+   Headers: id, name, email, age
+   Rows: 1000
 
-```bash
-# Make sure Docker/Colima is running
-colima status  # or: docker ps
+🔍 Validating CSV headers against schema... ✓
 
-# Run integration tests
-./gradlew test --tests "KafkaIntegrationTest"
+🔍 Validating all rows (dry run)...
+   ✓ Validated 50 rows...
+   ✓ Validated 100 rows...
+   ...
+
+📊 Dry Run Summary
+   ✓ Valid rows: 1000
+   ✗ Invalid rows: 0
+
+✅ All rows validated successfully! Ready to load to Kafka.
 ```
-
-### Test Coverage
-
-- ✅ **Unit Tests**: CSV parsing, Avro mapping, validation logic
-- ✅ **Integration Tests**: End-to-end with Testcontainers (Kafka + Schema Registry)
-- 📊 **Coverage**: 85%+ code coverage
 
 ## 🏭 Project Structure
 
@@ -254,32 +326,38 @@ colima status  # or: docker ps
 kafka-csv-loader/
 ├── src/
 │   ├── main/kotlin/com/dragos/kafkacsvloader/
-│   │   ├── Main.kt                    # CLI entry point
+│   │   ├── cli/
+│   │   │   └── LoadCommand.kt          # CLI entry point & command handler
 │   │   ├── csv/
-│   │   │   ├── CsvParser.kt           # CSV parsing logic
-│   │   │   └── CsvData.kt             # Data models
+│   │   │   └── CsvParser.kt            # CSV parsing and validation
 │   │   ├── avro/
-│   │   │   ├── AvroSchemaLoader.kt    # Schema loading
-│   │   │   ├── AvroRecordMapper.kt    # CSV → Avro mapping
-│   │   │   └── RowMappingResult.kt    # Result types
+│   │   │   ├── AvroSchemaLoader.kt     # Schema loading from .avsc files
+│   │   │   └── AvroRecordMapper.kt     # CSV → Avro mapping & type conversion
 │   │   └── kafka/
-│   │       └── KafkaProducerClient.kt # Kafka producer
-│   └── test/
-│       ├── kotlin/com/dragos/kafkacsvloader/
-│       │   ├── csv/CsvParserTest.kt
-│       │   ├── avro/AvroRecordMapperTest.kt
-│       │   └── integration/KafkaIntegrationTest.kt
-│       └── resources/
-│           └── integration/            # Test fixtures
-├── build.gradle.kts                    # Build configuration
+│   │       └── KafkaProducerClient.kt  # Kafka producer with Avro serialization
+│   └── test/kotlin/com/dragos/kafkacsvloader/
+│       ├── cli/
+│       │   └── DryRunTest.kt           # Dry-run mode tests
+│       ├── csv/
+│       │   └── CsvParserTest.kt        # CSV parsing tests
+│       ├── avro/
+│       │   ├── AvroSchemaLoaderTest.kt # Schema loading tests
+│       │   └── AvroRecordMapperTest.kt # Avro mapping tests
+│       └── integration/
+│           └── KafkaIntegrationTest.kt # End-to-end Testcontainers tests
+├── build.gradle.kts                     # Build configuration with plugins
+├── .github/
+│   └── workflows/
+│       └── release.yml                  # CI/CD and release automation
+├── .axion.yml                           # Semantic versioning configuration
 └── README.md
 ```
 
 ## 🐛 Error Handling
 
-The tool provides detailed error reporting:
+The tool provides detailed error reporting at every stage:
 
-**Schema Validation Errors:**
+### Schema Validation Errors
 
 ```
 ❌ Error: Schema validation failed
@@ -287,43 +365,117 @@ The tool provides detailed error reporting:
    Row 7: Field 'email' - Missing value for required field
 ```
 
-**Missing CSV Headers:**
+### Missing CSV Headers
 
 ```
 ❌ Error: CSV validation failed
    Missing required fields: age, email
 ```
 
-**Kafka Connection Errors:**
+### Kafka Connection Errors
 
 ```
 ❌ Error: Failed to connect to Kafka
    Caused by: Connection refused: localhost:9092
 ```
 
-## 🔧 Configuration for Colima (macOS)
+### Dry Run Validation Errors
 
-If you're using Colima instead of Docker Desktop:
+```
+📊 Dry Run Summary
+   ✓ Valid rows: 998
+   ✗ Invalid rows: 2
+
+   Invalid rows:
+     Row 5: Field 'age' conversion error: For input string: "invalid"
+     Row 42: Missing value for required field 'email'
+```
+
+## 🧪 Testing
+
+### Test Coverage
+
+The project maintains high test coverage with multiple test types:
+
+-   ✅ **Unit Tests**: CSV parsing, Avro mapping, validation logic
+-   ✅ **Integration Tests**: End-to-end with Testcontainers (Kafka + Schema Registry)
+-   ✅ **CLI Tests**: Dry-run mode validation
+-   📊 **Coverage**: 80%+ code coverage (measured by JaCoCo)
+
+### Running Tests
 
 ```bash
+# All tests
+./gradlew test
+
+# Unit tests only
+./gradlew test --tests "*.csv.*" --tests "*.avro.*"
+
+# Integration tests (requires Docker/Colima)
+./gradlew test --tests "*IntegrationTest"
+
+# Generate coverage report
+./gradlew jacocoTestReport
+open build/reports/jacoco/test/html/index.html
+```
+
+### Code Quality
+
+```bash
+# Run ktlint checks
+./gradlew ktlintCheck
+
+# Auto-format code
+./gradlew ktlintFormat
+
+# Full quality check (lint + coverage)
+./gradlew check
+```
+
+## 🔧 Configuration for Colima (macOS)
+
+If you're using Colima instead of Docker Desktop for integration tests:
+
+```bash
+# Start Colima
+colima start
+
 # Set environment variables
-export DOCKER_HOST="unix:///Users/$USER/.colima/default/docker.sock"
-export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE="/Users/$USER/.colima/default/docker.sock"
+export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"
+export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE="$HOME/.colima/default/docker.sock"
 
 # Add to ~/.zshrc for persistence
 echo 'export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"' >> ~/.zshrc
 echo 'export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE="$HOME/.colima/default/docker.sock"' >> ~/.zshrc
 ```
 
+## 📦 Releases
+
+This project uses semantic versioning with automatic releases on every commit to `main`:
+
+-   **Format**: `v0.0.1`, `v0.0.2`, etc.
+-   **Automation**: GitHub Actions automatically tags and creates releases
+-   **Artifacts**: JAR files are attached to each release
+
+View releases: [https://github.com/drag0sd0g/kafka-csv-loader/releases](https://github.com/drag0sd0g/kafka-csv-loader/releases)
+
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Please follow these steps:
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+3. Run tests and linting (`./gradlew build`)
+4. Commit your changes (`git commit -m 'Add amazing feature'`)
+5. Push to the branch (`git push origin feature/amazing-feature`)
+6. Open a Pull Request
+
+**Code Standards:**
+
+-   Follow Kotlin coding conventions
+-   Maintain 80%+ test coverage
+-   Pass all ktlint checks
+-   Add tests for new features
 
 ## 📝 License
 
@@ -331,10 +483,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- Built with [Clikt](https://ajalt.github.io/clikt/) for CLI parsing
-- Terminal UI powered by [Mordant](https://github.com/ajalt/mordant)
-- CSV parsing by [kotlin-csv](https://github.com/doyaaaaaken/kotlin-csv)
-- Integration testing with [Testcontainers](https://www.testcontainers.org/)
+-   Built with [Clikt](https://ajalt.github.io/clikt/) for elegant CLI parsing
+-   Terminal UI powered by [Mordant](https://github.com/ajalt/mordant)
+-   CSV parsing by [kotlin-csv](https://github.com/doyaaaaaken/kotlin-csv)
+-   Integration testing with [Testcontainers](https://www.testcontainers.org/)
+-   Code quality with [Ktlint](https://ktlint.github.io/)
+-   Coverage reporting with [JaCoCo](https://www.jacoco.org/)
 
 ## 📧 Contact
 
