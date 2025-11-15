@@ -51,7 +51,7 @@ dependencies {
 }
 
 application {
-    mainClass.set("com.dragos.kafkacsvloader.MainKt")
+    mainClass.set("com.dragos.kafkacsvloader.KafkaCsvLoaderCommandKt")
 }
 
 tasks.withType<KotlinCompile> {
@@ -85,7 +85,7 @@ tasks.withType<Test> {
 // Fat JAR configuration
 tasks.jar {
     manifest {
-        attributes["Main-Class"] = "com.dragos.kafkacsvloader.MainKt"
+        attributes["Main-Class"] = "com.dragos.kafkacsvloader.KafkaCsvLoaderCommandKt"
         attributes["Implementation-Version"] = version
     }
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
@@ -158,6 +158,7 @@ tasks.jacocoTestReport {
     )
 }
 
+// Find the jacocoTestReport task and update it:
 tasks.jacocoTestReport {
     dependsOn(tasks.test)
 
@@ -180,11 +181,53 @@ tasks.jacocoTestReport {
                         "**/KafkaCsvLoaderCommand\$*.class",
                         "**/LoadCommand.class",
                         "**/LoadCommand\$*.class",
+                        "**/LoadCommandKt.class",
+                        "**/LoadCommandKt\$*.class",
                     )
                 }
             },
         ),
     )
+}
+
+tasks.jacocoTestCoverageVerification {
+    dependsOn(tasks.jacocoTestReport)
+
+    classDirectories.setFrom(
+        files(
+            classDirectories.files.map {
+                fileTree(it) {
+                    exclude(
+                        "**/generated/**",
+                        "**/LoadCommand.class",
+                        "**/LoadCommand\$*.class",
+                        "**/LoadCommandKt.class",
+                        "**/LoadCommandKt\$*.class",
+                    )
+                }
+            },
+        ),
+    )
+
+    violationRules {
+        rule {
+            element = "BUNDLE"
+            limit {
+                counter = "INSTRUCTION"
+                value = "COVEREDRATIO"
+                minimum = "0.80".toBigDecimal()
+            }
+        }
+
+        rule {
+            element = "CLASS"
+            limit {
+                counter = "LINE"
+                value = "COVEREDRATIO"
+                minimum = "0.70".toBigDecimal()
+            }
+        }
+    }
 }
 
 tasks.jacocoTestCoverageVerification {
