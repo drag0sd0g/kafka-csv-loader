@@ -7,6 +7,7 @@ import com.dragos.kafkacsvloader.csv.CsvParser
 import com.dragos.kafkacsvloader.kafka.KafkaProducerClient
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.options.default
+import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.options.versionOption
@@ -40,6 +41,11 @@ class KafkaCsvLoaderCommand : CliktCommand(
         "-k",
         help = "CSV column to use as Kafka message key (optional)",
     )
+    private val dryRun by option(
+        "--dry-run",
+        "-d",
+        help = "Validate CSV and schema without sending to Kafka",
+    ).flag(default = false)
 
     init {
         versionOption(getVersion())
@@ -49,6 +55,9 @@ class KafkaCsvLoaderCommand : CliktCommand(
 
     override fun run() {
         terminal.println(bold(cyan("🚀 Kafka CSV Loader")))
+        if (dryRun) {
+            terminal.println(yellow("   DRY RUN MODE - No data will be sent to Kafka"))
+        }
         terminal.println()
 
         try {
@@ -80,21 +89,13 @@ class KafkaCsvLoaderCommand : CliktCommand(
             terminal.println(green("✓"))
             terminal.println()
 
-            // Step 4: Connect to Kafka
-            terminal.print(yellow("🔌 Connecting to Kafka... "))
-            terminal.println()
-            terminal.println("   Bootstrap servers: $bootstrapServers")
-            terminal.println("   Schema Registry: $schemaRegistry")
-            terminal.println("   Topic: $topic")
-            terminal.println()
-
-            // Step 5: Process and send records
-            KafkaProducerClient(bootstrapServers, schemaRegistry).use { producer ->
-                terminal.println(yellow("📤 Sending records to Kafka..."))
+            if (dryRun) {
+                // Dry run: validate all rows can be mapped
+                terminal.println(yellow("🔍 Validating all rows (dry run)..."))
                 terminal.println()
 
-                var successCount = 0
-                var failureCount = 0
+                var validCount = 0
+                var invalidCount = 0
                 val failures = mutableListOf<Pair<Int, String>>()
 
                 csvData.rows.forEachIndexed { index, row ->
@@ -103,37 +104,26 @@ class KafkaCsvLoaderCommand : CliktCommand(
 
                     when (result) {
                         is RowMappingResult.Success -> {
-                            val key = keyField?.let { row[it] }
-                            try {
-                                producer.sendSync(topic, key, result.record)
-                                successCount++
-                                terminal.print(green("✓"))
-                                if (rowNumber % 50 == 0) {
-                                    terminal.println(" $rowNumber")
-                                }
-                            } catch (e: Exception) {
-                                failureCount++
-                                failures.add(rowNumber to "Kafka error: ${e.message}")
-                                terminal.print(red("✗"))
+                            validCount++
+                            if (rowNumber % 50 == 0) {
+                                terminal.println(green("   ✓ Validated $rowNumber rows..."))
                             }
                         }
                         is RowMappingResult.Failure -> {
-                            failureCount++
+                            invalidCount++
                             failures.add(rowNumber to result.errors.joinToString("; "))
-                            terminal.print(red("✗"))
                         }
                     }
                 }
-                terminal.println()
-                terminal.println()
 
-                // Step 6: Summary
-                terminal.println(bold(cyan("📊 Summary")))
-                terminal.println(green("   ✓ Success: $successCount"))
-                if (failureCount > 0) {
-                    terminal.println(red("   ✗ Failures: $failureCount"))
+                terminal.println()
+                terminal.println(bold(cyan("📊 Dry Run Summary")))
+                terminal.println(green("   ✓ Valid rows: $validCount"))
+                terminal.println(red("   ✗ Invalid rows: $invalidCount"))
+
+                if (failures.isNotEmpty()) {
                     terminal.println()
-                    terminal.println(yellow("   Failed rows:"))
+                    terminal.println(yellow("   Invalid rows:"))
                     failures.take(10).forEach { (rowNum, error) ->
                         terminal.println(red("     Row $rowNum: $error"))
                     }
@@ -142,8 +132,73 @@ class KafkaCsvLoaderCommand : CliktCommand(
                     }
                     exitProcess(1)
                 }
+
                 terminal.println()
-                terminal.println(bold(green("✅ All records successfully loaded!")))
+                terminal.println(bold(green("✅ All rows validated successfully! Ready to load to Kafka.")))
+            } else {
+                // Normal run: connect to Kafka and send
+                terminal.print(yellow("🔌 Connecting to Kafka... "))
+                terminal.println()
+                terminal.println("   Bootstrap servers: $bootstrapServers")
+                terminal.println("   Schema Registry: $schemaRegistry")
+                terminal.println("   Topic: $topic")
+                terminal.println()
+
+                KafkaProducerClient(bootstrapServers, schemaRegistry).use { producer ->
+                    terminal.println(yellow("📤 Sending records to Kafka..."))
+                    terminal.println()
+
+                    var successCount = 0
+                    var failureCount = 0
+                    val failures = mutableListOf<Pair<Int, String>>()
+
+                    csvData.rows.forEachIndexed { index, row ->
+                        val rowNumber = index + 1
+                        val result = AvroRecordMapper.mapRow(schema, row)
+
+                        when (result) {
+                            is RowMappingResult.Success -> {
+                                val key = keyField?.let { row[it] }
+                                try {
+                                    producer.sendSync(topic, key, result.record)
+                                    successCount++
+                                    terminal.print(green("✓"))
+                                    if (rowNumber % 50 == 0) {
+                                        terminal.println(" $rowNumber")
+                                    }
+                                } catch (e: Exception) {
+                                    failureCount++
+                                    failures.add(rowNumber to "Kafka error: ${e.message}")
+                                    terminal.print(red("✗"))
+                                }
+                            }
+                            is RowMappingResult.Failure -> {
+                                failureCount++
+                                failures.add(rowNumber to result.errors.joinToString("; "))
+                                terminal.print(red("✗"))
+                            }
+                        }
+                    }
+                    terminal.println()
+                    terminal.println()
+
+                    terminal.println(bold(cyan("📊 Summary")))
+                    terminal.println(green("   ✓ Success: $successCount"))
+                    if (failureCount > 0) {
+                        terminal.println(red("   ✗ Failures: $failureCount"))
+                        terminal.println()
+                        terminal.println(yellow("   Failed rows:"))
+                        failures.take(10).forEach { (rowNum, error) ->
+                            terminal.println(red("     Row $rowNum: $error"))
+                        }
+                        if (failures.size > 10) {
+                            terminal.println(yellow("     ... and ${failures.size - 10} more"))
+                        }
+                        exitProcess(1)
+                    }
+                    terminal.println()
+                    terminal.println(bold(green("✅ All records successfully loaded!")))
+                }
             }
         } catch (e: Exception) {
             terminal.println()
