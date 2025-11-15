@@ -156,13 +156,66 @@ tasks.jacocoTestReport {
     )
 }
 
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        csv.required.set(false)
+    }
+
+    classDirectories.setFrom(
+        files(
+            classDirectories.files.map {
+                fileTree(it) {
+                    exclude(
+                        "**/generated/**",
+                        "**/Main.class",
+                        "**/MainKt.class",
+                        "**/MainKt\$*.class",
+                        "**/KafkaCsvLoaderCommand.class",
+                        "**/KafkaCsvLoaderCommand\$*.class",
+                        "**/LoadCommand.class",
+                        "**/LoadCommand\$*.class",
+                    )
+                }
+            },
+        ),
+    )
+}
+
 tasks.jacocoTestCoverageVerification {
     dependsOn(tasks.jacocoTestReport)
 
+    // Use the same exclusions as the report
+    classDirectories.setFrom(
+        files(
+            classDirectories.files.map {
+                fileTree(it) {
+                    exclude(
+                        "**/generated/**",
+                        "**/Main.class",
+                        "**/MainKt.class",
+                        "**/MainKt\$*.class",
+                        "**/KafkaCsvLoaderCommand.class",
+                        "**/KafkaCsvLoaderCommand\$*.class",
+                        "**/LoadCommand.class",
+                        "**/LoadCommand\$*.class",
+                    )
+                }
+            },
+        ),
+    )
+
     violationRules {
         rule {
+            element = "BUNDLE"
             limit {
-                minimum = "0.80".toBigDecimal() // 80% minimum coverage
+                counter = "INSTRUCTION"
+                value = "COVEREDRATIO"
+                // Should be high since CLI is excluded
+                minimum = "0.80".toBigDecimal()
             }
         }
 
@@ -171,13 +224,8 @@ tasks.jacocoTestCoverageVerification {
             limit {
                 counter = "LINE"
                 value = "COVEREDRATIO"
-                minimum = "0.70".toBigDecimal() // 70% per class
+                minimum = "0.70".toBigDecimal()
             }
-            excludes =
-                listOf(
-                    "*.Main*",
-                    "*.*Kt",
-                )
         }
     }
 }
