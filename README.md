@@ -1,3 +1,5 @@
+[日本語で読む (Japanese)](README.ja.md)
+
 # 🚀 Kafka CSV Loader
 
 [![Kotlin](https://img.shields.io/badge/Kotlin-1.9.22-blue.svg)](https://kotlinlang.org)
@@ -6,9 +8,11 @@
 
 A robust, production-ready Kotlin CLI tool for loading CSV data into Apache Kafka with Avro schema validation, Schema Registry integration, and configurable batching.
 
+---
+
 ## 📋 Overview
 
-Kafka CSV Loader bridges the gap between traditional CSV data formats and modern event streaming platforms. It provides a seamless, type-safe way to migrate CSV data into Kafka topics with full schema validation and registry integration.
+Kafka CSV Loader bridges the gap between traditional CSV data formats and modern event streaming platforms. It provides a seamless, type-safe way to migrate CSV data into Kafka topics with full schema and data validation.
 
 **Use Cases:**
 
@@ -17,6 +21,8 @@ Kafka CSV Loader bridges the gap between traditional CSV data formats and modern
 -   **Data Integration**: Connecting CSV-based systems to event-driven architectures
 -   **Testing & Development**: Quickly populating Kafka topics with test data
 -   **Data Validation**: Dry-run mode to validate CSV data before production loads
+
+---
 
 ## ✨ Features
 
@@ -31,6 +37,8 @@ Kafka CSV Loader bridges the gap between traditional CSV data formats and modern
 ✅ **Colorful CLI** - Beautiful terminal output with progress indicators  
 ✅ **Production Ready** - 80%+ test coverage with unit and integration tests  
 ✅ **Code Quality** - Ktlint formatting, JaCoCo coverage reporting
+
+---
 
 ## 🏗️ Architecture
 
@@ -83,6 +91,8 @@ Kafka CSV Loader bridges the gap between traditional CSV data formats and modern
 └─────────────────┘
 ```
 
+---
+
 ## 🛠️ Technologies
 
 -   **Language**: Kotlin 1.9.22 (JVM 21)
@@ -96,6 +106,8 @@ Kafka CSV Loader bridges the gap between traditional CSV data formats and modern
 -   **Testing**: JUnit 5, Kotest, Testcontainers, Mockk
 -   **Code Quality**: Ktlint 1.0.1, JaCoCo 0.8.11
 -   **Containerization**: Docker/Colima support with Testcontainers
+
+---
 
 ## 📦 Installation
 
@@ -122,6 +134,8 @@ cd kafka-csv-loader
 # build/libs/kafka-csv-loader-*.jar
 ```
 
+---
+
 ### Run Tests
 
 ```bash
@@ -140,6 +154,8 @@ open build/reports/jacoco/test/html/index.html
 # Run integration tests (requires Docker/Colima)
 ./gradlew test --tests "*IntegrationTest"
 ```
+
+---
 
 ## 🚀 Quick Start
 
@@ -171,6 +187,8 @@ id,name,email,age,active
 }
 ```
 
+---
+
 ### 2. Start Kafka & Schema Registry
 
 ```bash
@@ -180,6 +198,8 @@ docker-compose up -d kafka schema-registry
 # Or using Confluent Platform
 confluent local services start
 ```
+
+---
 
 ### 3. Validate Data (Dry Run)
 
@@ -192,6 +212,8 @@ java -jar build/libs/kafka-csv-loader-*.jar \
   --topic users \
   --dry-run
 ```
+
+---
 
 ### 4. Load Data to Kafka
 
@@ -213,6 +235,8 @@ java -jar build/libs/kafka-csv-loader-*.jar \
   --batch-size 100
 ```
 
+---
+
 ### 5. Verify Data in Kafka
 
 ```bash
@@ -222,6 +246,8 @@ kafka-avro-console-consumer \
   --topic users \
   --from-beginning
 ```
+
+---
 
 ## 📖 Usage
 
@@ -307,6 +333,8 @@ java -jar kafka-csv-loader.jar \
   --dry-run
 ```
 
+---
+
 ## 🔍 Dry Run Mode
 
 Validate your CSV and schema without actually sending data to Kafka using the `--dry-run` flag.
@@ -356,6 +384,8 @@ Validate your CSV and schema without actually sending data to Kafka using the `-
 ✅ All rows validated successfully! Ready to load to Kafka.
 ```
 
+---
+
 ## ⚡ Batching & Performance
 
 For large CSV files, batching can significantly improve performance by reducing network roundtrips and improving throughput.
@@ -377,8 +407,6 @@ For large CSV files, batching can significantly improve performance by reducing 
 ### Batching Examples
 
 #### Small Files (<1K rows)
-
-Use default (no batching):
 
 ```bash
 java -jar kafka-csv-loader.jar \
@@ -430,10 +458,10 @@ java -jar kafka-csv-loader.jar \
 -   **Small files (<1K rows)**: Use default (no batching)
 -   **Medium files (1K-10K rows)**: Use `--batch-size 50`
 -   **Large files (>10K rows)**: Use `--batch-size 100`
--   **Production**: Always start with sync batching, test thoroughly before using async
+-   **Production**: Start with sync batching, test thoroughly before using async
 -   **Async mode**: Only use after testing; monitor for errors carefully
 
-### Batching Output Example
+**Batching Output Example**
 
 ```
 🚀 Kafka CSV Loader
@@ -468,6 +496,8 @@ java -jar kafka-csv-loader.jar \
 
 ✅ All records successfully loaded!
 ```
+
+---
 
 ## 🏭 Project Structure
 
@@ -504,11 +534,13 @@ kafka-csv-loader/
 └── README.md
 ```
 
+---
+
 ## 🐛 Error Handling
 
-The tool provides detailed error reporting at every stage:
+Provides detailed error messages at every stage:
 
-### Schema Validation Errors
+**Schema Validation Errors**
 
 ```
 ❌ Error: Schema validation failed
@@ -516,21 +548,21 @@ The tool provides detailed error reporting at every stage:
    Row 7: Field 'email' - Missing value for required field
 ```
 
-### Missing CSV Headers
+**Missing CSV Headers**
 
 ```
 ❌ Error: CSV validation failed
    Missing required fields: age, email
 ```
 
-### Kafka Connection Errors
+**Kafka Connection Errors**
 
 ```
 ❌ Error: Failed to connect to Kafka
    Caused by: Connection refused: localhost:9092
 ```
 
-### Batch Send Errors
+**Batch Send Errors**
 
 ```
 📊 Summary
@@ -543,7 +575,7 @@ The tool provides detailed error reporting at every stage:
      ...
 ```
 
-### Dry Run Validation Errors
+**Dry Run Validation Errors**
 
 ```
 📊 Dry Run Summary
@@ -555,11 +587,11 @@ The tool provides detailed error reporting at every stage:
      Row 42: Missing value for required field 'email'
 ```
 
+---
+
 ## 🧪 Testing
 
 ### Test Coverage
-
-The project maintains high test coverage with multiple test types:
 
 -   ✅ **Unit Tests**: CSV parsing, Avro mapping, validation logic, batching
 -   ✅ **Integration Tests**: End-to-end with Testcontainers (Kafka + Schema Registry)
@@ -599,6 +631,8 @@ open build/reports/jacoco/test/html/index.html
 ./gradlew check
 ```
 
+---
+
 ## 🔧 Configuration for Colima (macOS)
 
 If you're using Colima instead of Docker Desktop for integration tests:
@@ -616,6 +650,8 @@ echo 'export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"' >> ~/.zshrc
 echo 'export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE="$HOME/.colima/default/docker.sock"' >> ~/.zshrc
 ```
 
+---
+
 ## 📦 Releases
 
 This project uses semantic versioning with automatic releases on every commit to `main`:
@@ -625,6 +661,8 @@ This project uses semantic versioning with automatic releases on every commit to
 -   **Artifacts**: JAR files are attached to each release
 
 View releases: [https://github.com/drag0sd0g/kafka-csv-loader/releases](https://github.com/drag0sd0g/kafka-csv-loader/releases)
+
+---
 
 ## 🤝 Contributing
 
@@ -644,9 +682,13 @@ Contributions are welcome! Please follow these steps:
 -   Pass all ktlint checks
 -   Add tests for new features
 
+---
+
 ## 📝 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
 
 ## 🙏 Acknowledgments
 
@@ -656,6 +698,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 -   Integration testing with [Testcontainers](https://www.testcontainers.org/)
 -   Code quality with [Ktlint](https://ktlint.github.io/)
 -   Coverage reporting with [JaCoCo](https://www.jacoco.org/)
+
+---
 
 ## 📧 Contact
 
